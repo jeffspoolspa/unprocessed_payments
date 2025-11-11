@@ -12,13 +12,47 @@ from datetime import datetime, timedelta
 
 load_dotenv()
 
-access_token = os.getenv("ACCESS_TOKEN")
 realm_id = os.getenv("REALM_ID")
+client_id = os.getenv("CLIENT_ID")
+client_secret = os.getenv("CLIENT_SECRET")
+refresh_token = os.getenv("REFRESH_TOKEN")
 smtp_host = os.getenv("SMTP_HOST")
 smtp_port = int(os.getenv("SMTP_PORT", 587))
 smtp_user = os.getenv("SMTP_USER")
 smtp_pass = os.getenv("SMTP_PASS")
 to_email = os.getenv("TO_EMAIL")
+
+
+def get_new_access_token(client_id: str, client_secret: str, refresh_token: str) -> str:
+    """Refresh QuickBooks access token using refresh token"""
+    try:
+        token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+
+        # Use basic auth with client_id and client_secret
+        from requests.auth import HTTPBasicAuth
+        auth = HTTPBasicAuth(client_id, client_secret)
+
+        response = requests.post(token_url, headers=headers, data=data, auth=auth)
+        response.raise_for_status()
+
+        token_data = response.json()
+        new_access_token = token_data.get("access_token")
+
+        print("Successfully refreshed access token")
+        return new_access_token
+    except Exception as e:
+        print(f"Failed to refresh access token: {str(e)}")
+        raise
 
 
 def get_qbo_credits(access_token: str, realm_id: str) -> List[Dict]:
@@ -237,6 +271,9 @@ Automated Payment Report System
 
 
 if __name__ == "__main__":
+    # Get fresh access token
+    access_token = get_new_access_token(client_id, client_secret, refresh_token)
+
     credit_list = get_qbo_credits(access_token, realm_id)
 
     # Write to CSV file
