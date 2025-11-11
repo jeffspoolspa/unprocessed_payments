@@ -3,11 +3,22 @@ from typing import List, Dict
 from dotenv import load_dotenv
 import os
 import csv
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+from datetime import datetime, timedelta
 
 load_dotenv()
 
 access_token = os.getenv("ACCESS_TOKEN")
 realm_id = os.getenv("REALM_ID")
+smtp_host = os.getenv("SMTP_HOST")
+smtp_port = int(os.getenv("SMTP_PORT", 587))
+smtp_user = os.getenv("SMTP_USER")
+smtp_pass = os.getenv("SMTP_PASS")
+to_email = os.getenv("TO_EMAIL")
 
 
 def get_qbo_credits(access_token: str, realm_id: str) -> List[Dict]:
@@ -97,20 +108,32 @@ def get_qbo_credits(access_token: str, realm_id: str) -> List[Dict]:
     
     # Filter and format
     credit_list = []
+    # Calculate date one month ago
+    one_month_ago = (datetime.now() - timedelta(days=30)).date()
+
     for payment in all_payments:
         # Check if unprocessed and payment method is CC or ACH
         is_unprocessed = payment.get("ProcessPayment") != True
-        
+
         payment_method_id = payment.get("PaymentMethodRef", {}).get("value")
         payment_method = payment_methods.get(payment_method_id, "")
         is_valid_method = payment_method in ["Credit Card", "ACH"]
-        
+
+        # Check if payment is within the last month
+        payment_date_str = payment.get("TxnDate", "")
+        try:
+            payment_date = datetime.strptime(payment_date_str, "%Y-%m-%d").date()
+            is_recent = payment_date >= one_month_ago
+        except (ValueError, AttributeError):
+            is_recent = False
+
         # Get deposit account ID and name
         deposit_account_ref = payment.get("DepositToAccountRef", {})
         deposit_account_id = deposit_account_ref.get("value", "")
         deposit_account_name = accounts.get(deposit_account_id, "")
-        
-        if True:
+
+        # Only include if unprocessed, valid payment method, and within last month
+        if is_unprocessed and is_valid_method and is_recent:
             # Get customer name
             customer_ref = payment.get("CustomerRef", {})
             customer_id = customer_ref.get("value", "")
@@ -159,19 +182,76 @@ def get_qbo_credits(access_token: str, realm_id: str) -> List[Dict]:
     
     return credit_list
 
+
+def send_email_with_csv(csv_filename: str, record_count: int):
+    """Send email with CSV attachment"""
+    try:
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+        msg['Subject'] = f'Unprocessed Payments Report - {datetime.now().strftime("%B %d, %Y")}'
+
+        # Email body
+        body = f"""Hello,
+
+Please find attached the unprocessed payments report for the last 30 days.
+
+Total unprocessed payments: {record_count}
+
+This report includes:
+- Payments marked as unprocessed
+- Payment methods: Credit Card or ACH
+- Dates within the last 30 days
+
+Best regards,
+Automated Payment Report System
+"""
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Attach CSV file
+        with open(csv_filename, 'rb') as attachment:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(attachment.read())
+
+        encoders.encode_base64(part)
+        part.add_header(
+            'Content-Disposition',
+            f'attachment; filename= {csv_filename}'
+        )
+        msg.attach(part)
+
+        # Send email
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        text = msg.as_string()
+        server.sendmail(smtp_user, to_email, text)
+        server.quit()
+
+        print(f"Email sent successfully to {to_email}")
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
+        return False
+
+
 if __name__ == "__main__":
     credit_list = get_qbo_credits(access_token, realm_id)
-    
+
     # Write to CSV file
     if credit_list:
-        csv_filename = "credit_list.csv"
-        fieldnames = ["Invoice_ID", "Date", "Total_Amount", "QBO_Customer_ID", "Customer_Name", "Invoice_Number", "Payment_Method", "Payment_Number", "Memo", "Deposit_Account_ID", "Deposit_Account_Name", "Has_Matching_Deposit", "Deposit_ID", "Deposit_Number", "Unprocessed"]
-        
+        csv_filename = "unprocessed_payments.csv"
+        fieldnames = ["Payment_ID", "Date", "Total_Amount", "QBO_Customer_ID", "Customer_Name", "Invoice_Number", "Payment_Method", "Payment_Number", "Memo", "Deposit_Account_ID", "Deposit_Account_Name", "Has_Matching_Deposit", "Deposit_ID", "Deposit_Number", "Unprocessed"]
+
         with open(csv_filename, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(credit_list)
-        
+
         print(f"Successfully wrote {len(credit_list)} records to {csv_filename}")
+
+        # Send email with CSV attachment
+        send_email_with_csv(csv_filename, len(credit_list))
     else:
-        print("No credit records found to write to CSV.")
+        print("No unprocessed payments found matching the criteria (valid payment method, unprocessed, last 30 days).")
