@@ -22,7 +22,11 @@ smtp_user = os.getenv("SMTP_USER")
 smtp_pass = os.getenv("SMTP_PASS")
 to_email = os.getenv("TO_EMAIL")
 github_token = os.getenv("GH_PAT")
-github_repo = os.getenv("GH_REPO")  
+github_repo = os.getenv("GH_REPO")
+
+print(f"Client ID: {client_id[:10]}...")
+print(f"Refresh token: {refresh_token[:10]}...")
+print(f"Realm ID: {realm_id}")
 
 def update_github_secret(secret_name: str, secret_value: str, github_token: str, github_repo: str) -> bool:
 
