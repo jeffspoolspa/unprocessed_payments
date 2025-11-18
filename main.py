@@ -21,8 +21,8 @@ smtp_port = int(os.getenv("SMTP_PORT", 587))
 smtp_user = os.getenv("SMTP_USER")
 smtp_pass = os.getenv("SMTP_PASS")
 to_email = os.getenv("TO_EMAIL")
-github_token = os.getenv("GITHUB_TOKEN")
-github_repo = os.getenv("GITHUB_REPOSITORY")  
+github_token = os.getenv("GH_PAT")
+github_repo = os.getenv("GH_REPO")  
 
 def update_github_secret(secret_name: str, secret_value: str, github_token: str, github_repo: str) -> bool:
 
