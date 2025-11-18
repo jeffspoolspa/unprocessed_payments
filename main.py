@@ -55,14 +55,7 @@ def get_new_access_token(client_id: str, client_secret: str, refresh_token: str)
         new_access_token = token_data.get("access_token")
         new_refresh_token = token_data.get("refresh_token")
 
-        print("Successfully refreshed access token")
-        print(f"\n{'='*60}")
-        print("IMPORTANT: New refresh token generated!")
-        print(f"{'='*60}")
-        print(f"New Refresh Token: {new_refresh_token}")
-        print(f"\nPlease update your GitHub secret 'REFRESH_TOKEN' with this new value")
-        print(f"to keep authentication working for the next 100 days.")
-        print(f"{'='*60}\n")
+        print("✓ Successfully refreshed QuickBooks access token")
 
         return new_access_token, new_refresh_token
     except requests.exceptions.HTTPError as e:
@@ -352,7 +345,7 @@ if __name__ == "__main__":
         update_github_secret("REFRESH_TOKEN", new_refresh_token, github_token, github_repo)
     else:
         print("⚠ GitHub token or repo not configured - skipping automatic secret update")
-        print(f"  Please manually update REFRESH_TOKEN secret with: {new_refresh_token}")
+        print("  Running locally - refresh token not saved to GitHub secrets")
 
     credit_list = get_qbo_credits(access_token, realm_id)
 
