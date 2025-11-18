@@ -165,9 +165,9 @@ def get_new_access_token(client_id: str, client_secret: str, refresh_token: str)
     
             print(f"  Please manually update REFRESH_TOKEN secret with: {new_refresh_token}")
     
-            print("Successfully refreshed access token")
+        print("Successfully refreshed access token")
             
-            return new_access_token
+        return new_access_token
             
     except Exception as e:
         print(f"Failed to refresh access token: {str(e)}")
