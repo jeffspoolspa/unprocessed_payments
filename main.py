@@ -23,8 +23,12 @@ smtp_pass = os.getenv("SMTP_PASS")
 to_email = os.getenv("TO_EMAIL")
 
 
-def get_new_access_token(client_id: str, client_secret: str, refresh_token: str) -> str:
-    """Refresh QuickBooks access token using refresh token"""
+def get_new_access_token(client_id: str, client_secret: str, refresh_token: str) -> tuple:
+    """Refresh QuickBooks access token using refresh token
+
+    Returns:
+        tuple: (new_access_token, new_refresh_token)
+    """
     try:
         token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
 
@@ -47,9 +51,22 @@ def get_new_access_token(client_id: str, client_secret: str, refresh_token: str)
 
         token_data = response.json()
         new_access_token = token_data.get("access_token")
+        new_refresh_token = token_data.get("refresh_token")
 
         print("Successfully refreshed access token")
-        return new_access_token
+        print(f"\n{'='*60}")
+        print("IMPORTANT: New refresh token generated!")
+        print(f"{'='*60}")
+        print(f"New Refresh Token: {new_refresh_token}")
+        print(f"\nPlease update your GitHub secret 'REFRESH_TOKEN' with this new value")
+        print(f"to keep authentication working for the next 100 days.")
+        print(f"{'='*60}\n")
+
+        return new_access_token, new_refresh_token
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP Error refreshing access token: {e}")
+        print(f"Response: {e.response.text if hasattr(e, 'response') else 'No response'}")
+        raise
     except Exception as e:
         print(f"Failed to refresh access token: {str(e)}")
         raise
@@ -271,8 +288,8 @@ Automated Payment Report System
 
 
 if __name__ == "__main__":
-    # Get fresh access token
-    access_token = get_new_access_token(client_id, client_secret, refresh_token)
+    # Get fresh access token and new refresh token
+    access_token, new_refresh_token = get_new_access_token(client_id, client_secret, refresh_token)
 
     credit_list = get_qbo_credits(access_token, realm_id)
 
