@@ -21,6 +21,112 @@ smtp_port = int(os.getenv("SMTP_PORT", 587))
 smtp_user = os.getenv("SMTP_USER")
 smtp_pass = os.getenv("SMTP_PASS")
 to_email = os.getenv("TO_EMAIL")
+github_token = os.getenv("GITHUB_TOKEN")
+github_repo = os.getenv("GITHUB_REPOSITORY")  
+
+def update_github_secret(secret_name: str, secret_value: str, github_token: str, github_repo: str) -> bool:
+
+    """Update a GitHub repository secret
+
+ 
+
+    Args:
+
+        secret_name: Name of the secret to update
+
+        secret_value: New value for the secret
+
+        github_token: GitHub Personal Access Token with repo scope
+
+        github_repo: Repository in format "owner/repo"
+
+ 
+
+    Returns:
+
+        bool: True if successful, False otherwise
+
+    """
+
+    try:
+
+        from nacl import encoding, public
+
+        import base64
+
+ 
+
+        # Get repository public key
+
+        key_url = f"https://api.github.com/repos/{github_repo}/actions/secrets/public-key"
+
+        headers = {
+
+            "Authorization": f"Bearer {github_token}",
+
+            "Accept": "application/vnd.github+json",
+
+            "X-GitHub-Api-Version": "2022-11-28"
+
+        }
+
+ 
+
+        key_response = requests.get(key_url, headers=headers)
+
+        key_response.raise_for_status()
+
+        key_data = key_response.json()
+
+ 
+
+        public_key = key_data["key"]
+
+        key_id = key_data["key_id"]
+
+ 
+
+        # Encrypt the secret value
+
+        public_key_obj = public.PublicKey(public_key.encode("utf-8"), encoding.Base64Encoder())
+
+        sealed_box = public.SealedBox(public_key_obj)
+
+        encrypted = sealed_box.encrypt(secret_value.encode("utf-8"))
+
+        encrypted_value = base64.b64encode(encrypted).decode("utf-8")
+
+ 
+
+        # Update the secret
+
+        secret_url = f"https://api.github.com/repos/{github_repo}/actions/secrets/{secret_name}"
+
+        secret_data = {
+
+            "encrypted_value": encrypted_value,
+
+            "key_id": key_id
+
+        }
+
+ 
+
+        secret_response = requests.put(secret_url, headers=headers, json=secret_data)
+
+        secret_response.raise_for_status()
+
+ 
+
+        print(f"✓ Successfully updated GitHub secret '{secret_name}'")
+
+        return True
+
+    except Exception as e:
+
+        print(f"✗ Failed to update GitHub secret '{secret_name}': {str(e)}")
+
+        return False
 
 
 def get_new_access_token(client_id: str, client_secret: str, refresh_token: str) -> str:
@@ -47,9 +153,22 @@ def get_new_access_token(client_id: str, client_secret: str, refresh_token: str)
 
         token_data = response.json()
         new_access_token = token_data.get("access_token")
+        new_refresh_token = token_data.get("refresh_token")
 
-        print("Successfully refreshed access token")
-        return new_access_token
+        if github_token and github_repo and new_refresh_token:
+
+            update_github_secret("REFRESH_TOKEN", new_refresh_token, github_token, github_repo)
+
+        else:
+
+            print("⚠ GitHub token or repo not configured - skipping automatic secret update")
+    
+            print(f"  Please manually update REFRESH_TOKEN secret with: {new_refresh_token}")
+    
+            print("Successfully refreshed access token")
+            
+            return new_access_token
+            
     except Exception as e:
         print(f"Failed to refresh access token: {str(e)}")
         raise
