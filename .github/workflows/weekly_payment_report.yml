@@ -37,7 +37,7 @@ jobs:
         SMTP_PASS: ${{ secrets.SMTP_PASS }}
         TO_EMAIL: ${{ secrets.TO_EMAIL }}
         GH_PAT: ${{ secrets.GH_PAT }}
-        GH_REPO: jeffspools/unprocessed_payments
+        GH_REPO: jeffspoolspa/unprocessed_payments
       run: python main.py
 
     - name: Upload CSV artifact
