@@ -153,6 +153,10 @@ def get_new_access_token(client_id: str, client_secret: str, refresh_token: str)
         auth = HTTPBasicAuth(client_id, client_secret)
 
         response = requests.post(token_url, headers=headers, data=data, auth=auth)
+
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+
         response.raise_for_status()
 
         token_data = response.json()
