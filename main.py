@@ -27,6 +27,7 @@ github_repo = os.getenv("GH_REPO")
 print(f"Client ID: {client_id[:10]}...")
 print(f"Refresh token: {refresh_token[:10]}...")
 print(f"Realm ID: {realm_id}")
+print(f"GitHub repo format: {github_repo}")
 
 def update_github_secret(secret_name: str, secret_value: str, github_token: str, github_repo: str) -> bool:
 
